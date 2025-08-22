@@ -1,0 +1,23 @@
+echo "🔍 Running pre-commit checks..."
+
+# Run TypeScript type checking
+echo "📝 Type checking..."
+npx tsc --noEmit
+
+# Check if type checking passed
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript type checking failed. Please fix the errors before committing."
+  exit 1
+fi
+
+# Run lint-staged
+echo "🎨 Running linting and formatting..."
+npx lint-staged
+
+# Check if linting passed
+if [ $? -ne 0 ]; then
+  echo "❌ Linting failed. Please fix the errors before committing."
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed!"
