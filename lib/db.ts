@@ -24,7 +24,8 @@ export async function getPosts(): Promise<Post[]> {
     .select(
       `
       *,
-      profiles!posts_author_id_fkey(username)
+      profiles!posts_author_id_fkey(username),
+      likes(user_id)
     `
     )
     .order('created_at', { ascending: false });
@@ -44,8 +45,14 @@ export async function getPosts(): Promise<Post[]> {
           created_at: new Date().toISOString(),
         }
       : undefined,
-    likes_count: 0, // We'll calculate this later
-    is_liked: false,
+    // Calculate actual like count
+    likes_count: post.likes ? post.likes.length : 0,
+    // Check if current user has liked this post
+    is_liked: post.likes
+      ? post.likes.some(
+          (like: { user_id: string }) => like.user_id === user?.id
+        )
+      : false,
     // Check if current user owns this post
     is_owner: user?.id === post.author_id,
   }));
@@ -100,6 +107,8 @@ export async function createPost(content: string): Promise<Post> {
 }
 
 export async function likePost(postId: string): Promise<void> {
+  console.log('🔄 Attempting to like post:', postId);
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -107,6 +116,8 @@ export async function likePost(postId: string): Promise<void> {
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  console.log('🔄 Creating like for user:', user.id, 'and post:', postId);
 
   const { error } = await supabase.from('likes').insert([
     {
@@ -116,12 +127,16 @@ export async function likePost(postId: string): Promise<void> {
   ]);
 
   if (error) {
-    console.error('Error liking post:', error);
+    console.error('❌ Error liking post:', error);
     throw new Error('Failed to like post');
   }
+
+  console.log('✅ Successfully liked post');
 }
 
 export async function unlikePost(postId: string): Promise<void> {
+  console.log('🔄 Attempting to unlike post:', postId);
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -130,6 +145,8 @@ export async function unlikePost(postId: string): Promise<void> {
     throw new Error('User not authenticated');
   }
 
+  console.log('🔄 Deleting like for user:', user.id, 'and post:', postId);
+
   const { error } = await supabase
     .from('likes')
     .delete()
@@ -137,7 +154,9 @@ export async function unlikePost(postId: string): Promise<void> {
     .eq('user_id', user.id);
 
   if (error) {
-    console.error('Error unliking post:', error);
+    console.error('❌ Error unliking post:', error);
     throw new Error('Failed to unlike post');
   }
+
+  console.log('✅ Successfully unliked post');
 }

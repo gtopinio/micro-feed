@@ -8,7 +8,7 @@ import { AuthForm } from '@/components/auth-form';
 import { Composer } from '@/components/composer';
 import { usePosts } from '@/hooks/use-posts';
 import { useAuth } from '@/hooks/use-auth';
-import { createPost } from '@/lib/db';
+import { createPost, likePost, unlikePost } from '@/lib/db';
 
 export default function HomePage() {
   const { posts, loading, error, refetch } = usePosts();
@@ -28,6 +28,39 @@ export default function HomePage() {
     } catch (error) {
       console.error('❌ handleCreatePost error:', error);
       throw error; // Re-throw so Composer can handle the error state
+    }
+  };
+
+  // Handle like/unlike with optimistic updates
+  const handleLikePost = async (postId: string) => {
+    try {
+      // Find the post to check current like status
+      const post = posts.find((p) => p.id === postId);
+      if (!post) return;
+
+      console.log('🔄 Post like status before action:', {
+        postId,
+        is_liked: post.is_liked,
+        likes_count: post.likes_count,
+      });
+
+      // Handle like/unlike based on current state
+      if (post.is_liked) {
+        console.log('🔄 Unliking post...');
+        await unlikePost(postId);
+        console.log('✅ Post unliked successfully');
+      } else {
+        console.log('🔄 Liking post...');
+        await likePost(postId);
+        console.log('✅ Post liked successfully');
+      }
+
+      // Refresh the posts to get accurate data from server
+      await refetch();
+    } catch (error) {
+      console.error('❌ handleLikePost error:', error);
+      // Refresh to revert any optimistic updates on error
+      await refetch();
     }
   };
 
@@ -119,7 +152,7 @@ export default function HomePage() {
               <PostCard
                 key={post.id}
                 post={post}
-                onLike={(id) => console.log('Like post:', id)}
+                onLike={handleLikePost}
                 onEdit={(id) => console.log('Edit post:', id)}
                 onDelete={(id) => console.log('Delete post:', id)}
               />
