@@ -3,6 +3,11 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Post } from '@/types/post';
+import {
+  PaginationParams,
+  PaginationResult,
+  createPaginationResult,
+} from './pagination';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -58,6 +63,67 @@ export async function getPosts(): Promise<Post[]> {
   }));
 
   return transformedPosts;
+}
+
+// 🔄 Paginated version of getPosts for better performance
+export async function getPostsPaginated(
+  pagination: PaginationParams
+): Promise<PaginationResult<Post>> {
+  // Get current user for ownership checks
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // First, get the total count for pagination
+  const { count, error: countError } = await supabase
+    .from('posts')
+    .select('*', { count: 'exact', head: true });
+
+  if (countError) {
+    console.error('Error counting posts:', countError);
+    throw new Error('Failed to count posts');
+  }
+
+  // Then get the paginated posts with relations
+  const { data, error } = await supabase
+    .from('posts')
+    .select(
+      `
+      *,
+      profiles!posts_author_id_fkey(username),
+      likes(user_id)
+    `
+    )
+    .order('created_at', { ascending: false })
+    .range(pagination.offset, pagination.offset + pagination.limit - 1);
+
+  if (error) {
+    console.error('Error fetching paginated posts:', error);
+    throw new Error('Failed to fetch posts');
+  }
+
+  // Transform the data to match our Post interface (same logic as getPosts)
+  const transformedPosts = (data || []).map((post) => ({
+    ...post,
+    author: post.profiles
+      ? {
+          id: post.author_id,
+          username: post.profiles.username,
+          created_at: new Date().toISOString(),
+        }
+      : undefined,
+    likes_count: post.likes ? post.likes.length : 0,
+    // Check if current user has liked this post
+    is_liked: post.likes
+      ? post.likes.some(
+          (like: { user_id: string }) => like.user_id === user?.id
+        )
+      : false,
+    // Check if current user owns this post
+    is_owner: user?.id === post.author_id,
+  }));
+
+  return createPaginationResult(transformedPosts, count || 0, pagination);
 }
 
 export async function createPost(content: string): Promise<Post> {

@@ -3,15 +3,33 @@
 
 'use client';
 
+import { useState } from 'react';
 import { PostCard } from '@/components/post-card';
 import { AuthForm } from '@/components/auth-form';
 import { Composer } from '@/components/composer';
+import { Pagination, PaginationInfo } from '@/components/pagination';
 import { usePosts } from '@/hooks/use-posts';
+import { usePostsPaginated } from '@/hooks/use-posts-paginated';
 import { useAuth } from '@/hooks/use-auth';
 import { createPost, likePost, unlikePost } from '@/lib/db';
 
 export default function HomePage() {
-  const { posts, loading, error, refetch } = usePosts();
+  const [usePagination, setUsePagination] = useState(false);
+
+  // Original posts hook (non-paginated)
+  const originalPosts = usePosts();
+
+  // Paginated posts hook
+  const paginatedPosts = usePostsPaginated({
+    initialLimit: 5, // Smaller limit for demo
+    onPageChange: (page) => console.log('Page changed to:', page),
+  });
+
+  // Choose which data source to use
+  const { posts, loading, error, refetch } = usePagination
+    ? paginatedPosts
+    : originalPosts;
+
   const {
     isAuthenticated,
     loading: authLoading,
@@ -117,6 +135,23 @@ export default function HomePage() {
               <i className="fas fa-user-circle mr-2"></i>
               Welcome, {displayName}
             </div>
+
+            {/* Pagination Toggle */}
+            <button
+              onClick={() => setUsePagination(!usePagination)}
+              className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center ${
+                usePagination
+                  ? 'bg-cyan-500 hover:bg-cyan-600 text-white'
+                  : 'bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white'
+              }`}
+              title={usePagination ? 'Disable pagination' : 'Enable pagination'}
+            >
+              <i
+                className={`fas ${usePagination ? 'fa-list' : 'fa-stream'} mr-1`}
+              ></i>
+              {usePagination ? 'Paginated' : 'All Posts'}
+            </button>
+
             <button
               onClick={signOut}
               className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-1 rounded-lg transition-colors flex items-center"
@@ -159,6 +194,29 @@ export default function HomePage() {
             ))
           )}
         </div>
+
+        {/* Pagination Controls - Only show when pagination is enabled */}
+        {usePagination && paginatedPosts.pagination && (
+          <div className="mt-8 space-y-4">
+            {/* Pagination Info */}
+            <PaginationInfo
+              currentPage={paginatedPosts.pagination.currentPage}
+              totalPages={paginatedPosts.pagination.totalPages}
+              totalItems={paginatedPosts.pagination.totalItems}
+              limit={paginatedPosts.pagination.limit}
+              className="text-center"
+            />
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={paginatedPosts.pagination.currentPage}
+              totalPages={paginatedPosts.pagination.totalPages}
+              onPageChange={paginatedPosts.setPage}
+              loading={loading}
+              className="mt-4"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
