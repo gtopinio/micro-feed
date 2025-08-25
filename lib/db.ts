@@ -54,20 +54,14 @@ export async function getPosts(): Promise<Post[]> {
 }
 
 export async function createPost(content: string): Promise<Post> {
-  console.log('🔄 Creating post with content:', content);
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  console.log('🔄 Current user:', user?.id);
-
   if (!user) {
-    console.error('❌ User not authenticated');
     throw new Error('User not authenticated');
   }
 
-  console.log('🔄 Inserting post into database...');
   const { data, error } = await supabase
     .from('posts')
     .insert([
@@ -87,11 +81,7 @@ export async function createPost(content: string): Promise<Post> {
   if (error) {
     console.error('❌ Error creating post:', error);
     throw new Error(`Failed to create post: ${error.message}`);
-  }
-
-  console.log('✅ Post created successfully:', data);
-
-  // Transform the data to match our Post interface (same as getPosts)
+  } // Transform the data to match our Post interface (same as getPosts)
   const transformedPost = {
     ...data,
     author: data.profiles

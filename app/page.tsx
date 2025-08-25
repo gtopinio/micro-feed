@@ -7,7 +7,7 @@ import { PostCard } from '@/components/post-card';
 import { AuthForm } from '@/components/auth-form';
 import { Composer } from '@/components/composer';
 import { usePosts } from '@/hooks/use-posts';
-import { useAuthWithProfile } from '@/hooks/use-auth-with-profile';
+import { useAuth } from '@/hooks/use-auth';
 import { createPost } from '@/lib/db';
 
 export default function HomePage() {
@@ -16,18 +16,15 @@ export default function HomePage() {
     isAuthenticated,
     loading: authLoading,
     displayName,
-  } = useAuthWithProfile();
+    signOut,
+  } = useAuth();
 
   // Handle post creation with optimistic updates
   const handleCreatePost = async (content: string) => {
-    console.log('🔄 handleCreatePost called with:', content);
     try {
-      console.log('🔄 Calling createPost...');
       await createPost(content);
-      console.log('✅ createPost completed, calling refetch...');
       // Refresh the posts after successful creation
       await refetch();
-      console.log('✅ refetch completed');
     } catch (error) {
       console.error('❌ handleCreatePost error:', error);
       throw error; // Re-throw so Composer can handle the error state
@@ -82,9 +79,19 @@ export default function HomePage() {
             <i className="fas fa-rss mr-3 text-cyan-500"></i>
             Micro Feed
           </h1>
-          <div className="text-sm text-slate-400 flex items-center">
-            <i className="fas fa-user-circle mr-2"></i>
-            Welcome, {displayName}
+          <div className="flex items-center space-x-4">
+            <div className="text-sm text-slate-400 flex items-center">
+              <i className="fas fa-user-circle mr-2"></i>
+              Welcome, {displayName}
+            </div>
+            <button
+              onClick={signOut}
+              className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-1 rounded-lg transition-colors flex items-center"
+              title="Sign out"
+            >
+              <i className="fas fa-sign-out-alt mr-1"></i>
+              Sign Out
+            </button>
           </div>
         </div>
 

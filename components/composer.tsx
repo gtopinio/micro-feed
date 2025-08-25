@@ -22,18 +22,14 @@ export function Composer({ onPost, isLoading = false }: ComposerProps) {
   const handleSubmit = async () => {
     if (isEmpty || isOverLimit || isSubmitting) return;
 
-    console.log('🔄 Starting post submission...');
     setIsSubmitting(true);
     try {
-      console.log('🔄 Calling onPost with content:', content.trim());
       await onPost(content.trim());
-      console.log('✅ Post submitted successfully');
       setContent(''); // Clear the composer after successful post
     } catch (error) {
       console.error('❌ Failed to create post:', error);
       // Keep the content so user can retry
     } finally {
-      console.log('🔄 Setting isSubmitting to false');
       setIsSubmitting(false);
     }
   };

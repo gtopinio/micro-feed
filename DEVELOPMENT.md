@@ -13,7 +13,7 @@ This project uses Husky for git hooks to maintain code quality:
 ### Commit Message Validation
 
 - **Conventional Commits** format enforced
-- Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `build`, `ci`, `revert`
+- Allowed types: `feat`, `update`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `build`, `ci`, `revert`
 
 ### Example Commit Messages
 

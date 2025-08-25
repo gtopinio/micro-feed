@@ -6,6 +6,7 @@ module.exports = {
       'always',
       [
         'feat', // New feature
+        'update', // Update existing feature
         'fix', // Bug fix
         'docs', // Documentation
         'style', // Formatting, missing semicolons, etc
