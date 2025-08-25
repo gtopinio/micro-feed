@@ -22,6 +22,11 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [isComposerOpen, setIsComposerOpen] = useState(false);
 
+  // State for optimistic updates
+  const [optimisticUpdates, setOptimisticUpdates] = useState<
+    Map<string, { is_liked: boolean; likes_count: number }>
+  >(new Map());
+
   // Original posts hook (non-paginated)
   const originalPosts = usePosts();
 
@@ -55,19 +60,34 @@ export default function HomePage() {
     refetch: refetchCounts,
   } = usePostCounts();
 
-  // Filter and search posts
+  // Apply optimistic updates to posts
+  const postsWithOptimisticUpdates = useMemo(() => {
+    return posts.map((post) => {
+      const optimisticUpdate = optimisticUpdates.get(post.id);
+      if (optimisticUpdate) {
+        return {
+          ...post,
+          is_liked: optimisticUpdate.is_liked,
+          likes_count: optimisticUpdate.likes_count,
+        };
+      }
+      return post;
+    });
+  }, [posts, optimisticUpdates]);
+
+  // Filter and search posts (with optimistic updates applied)
   const filteredPosts = useMemo(() => {
-    let filtered = posts;
+    let filtered = postsWithOptimisticUpdates;
 
     // In paginated mode, filtering and search is handled at the database level
     if (usePagination) {
-      return posts; // No client-side filtering needed
+      return filtered; // No client-side filtering needed, but optimistic updates still applied
     }
 
     // For non-paginated mode, apply client-side filtering
     // Apply filter (All Posts vs My Posts)
     if (activeFilter === 'my-posts' && user) {
-      filtered = posts.filter((post) => post.author_id === user.id);
+      filtered = filtered.filter((post) => post.author_id === user.id);
     }
 
     // Apply search
@@ -81,7 +101,13 @@ export default function HomePage() {
     }
 
     return filtered;
-  }, [posts, activeFilter, searchQuery, user, usePagination]);
+  }, [
+    postsWithOptimisticUpdates,
+    activeFilter,
+    searchQuery,
+    user,
+    usePagination,
+  ]);
 
   // Reset to first page when search query changes in paginated mode
   useEffect(() => {
@@ -109,7 +135,7 @@ export default function HomePage() {
   const handleLikePost = async (postId: string) => {
     try {
       // Find the post to check current like status
-      const post = posts.find((p) => p.id === postId);
+      const post = postsWithOptimisticUpdates.find((p) => p.id === postId);
       if (!post) return;
 
       console.log('🔄 Post like status before action:', {
@@ -118,22 +144,59 @@ export default function HomePage() {
         likes_count: post.likes_count,
       });
 
-      // Handle like/unlike based on current state
+      // Apply optimistic update immediately
+      const currentLikes = post.likes_count ?? 0;
+      const newIsLiked = !post.is_liked;
+      const newLikesCount = post.is_liked ? currentLikes - 1 : currentLikes + 1;
+
+      setOptimisticUpdates(
+        (prev) =>
+          new Map(
+            prev.set(postId, {
+              is_liked: newIsLiked,
+              likes_count: newLikesCount,
+            })
+          )
+      );
+
+      console.log('⚡ Optimistic update applied:', {
+        postId,
+        new_is_liked: newIsLiked,
+        new_likes_count: newLikesCount,
+      });
+
+      // Perform the actual database operation
       if (post.is_liked) {
-        console.log('🔄 Unliking post...');
+        console.log('🔄 Unliking post in database...');
         await unlikePost(postId);
         console.log('✅ Post unliked successfully');
       } else {
-        console.log('🔄 Liking post...');
+        console.log('🔄 Liking post in database...');
         await likePost(postId);
         console.log('✅ Post liked successfully');
       }
 
-      // Refresh the posts to get accurate data from server
+      // Clear optimistic update and refresh to sync with server
+      setOptimisticUpdates((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(postId);
+        return newMap;
+      });
+
       await refetch();
+
+      console.log('🔄 Data synced with server');
     } catch (error) {
       console.error('❌ handleLikePost error:', error);
-      // Refresh to revert any optimistic updates on error
+
+      // Revert optimistic update on error
+      setOptimisticUpdates((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(postId);
+        return newMap;
+      });
+
+      // Refresh to ensure UI is in sync with server
       await refetch();
     }
   };
