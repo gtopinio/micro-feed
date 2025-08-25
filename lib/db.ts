@@ -342,3 +342,127 @@ export async function unlikePost(postId: string): Promise<void> {
 
   console.log('✅ Successfully unliked post');
 }
+
+// 🗑️ Delete a post (only for post owners)
+export async function deletePost(postId: string): Promise<void> {
+  console.log('🔄 Attempting to delete post:', postId);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // First verify the user owns this post
+  const { data: post, error: fetchError } = await supabase
+    .from('posts')
+    .select('author_id')
+    .eq('id', postId)
+    .single();
+
+  if (fetchError) {
+    console.error('❌ Error fetching post for deletion:', fetchError);
+    throw new Error('Failed to fetch post');
+  }
+
+  if (post.author_id !== user.id) {
+    throw new Error('You can only delete your own posts');
+  }
+
+  // Delete the post (likes will be deleted automatically due to foreign key constraints)
+  const { error } = await supabase.from('posts').delete().eq('id', postId);
+
+  if (error) {
+    console.error('❌ Error deleting post:', error);
+    throw new Error('Failed to delete post');
+  }
+
+  console.log('✅ Successfully deleted post');
+}
+
+// ✏️ Update a post (only for post owners)
+export async function updatePost(
+  postId: string,
+  content: string
+): Promise<Post> {
+  console.log('🔄 Attempting to update post:', postId);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Validate content
+  if (!content.trim()) {
+    throw new Error('Post content cannot be empty');
+  }
+
+  if (content.length > 280) {
+    throw new Error('Post content cannot exceed 280 characters');
+  }
+
+  // First verify the user owns this post
+  const { data: post, error: fetchError } = await supabase
+    .from('posts')
+    .select('author_id')
+    .eq('id', postId)
+    .single();
+
+  if (fetchError) {
+    console.error('❌ Error fetching post for update:', fetchError);
+    throw new Error('Failed to fetch post');
+  }
+
+  if (post.author_id !== user.id) {
+    throw new Error('You can only edit your own posts');
+  }
+
+  // Update the post
+  const { data: updatedPost, error } = await supabase
+    .from('posts')
+    .update({
+      content: content.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', postId)
+    .select(
+      `
+      *,
+      profiles!posts_author_id_fkey(username),
+      likes(user_id)
+    `
+    )
+    .single();
+
+  if (error) {
+    console.error('❌ Error updating post:', error);
+    throw new Error('Failed to update post');
+  }
+
+  // Transform the data to match our Post interface
+  const transformedPost = {
+    ...updatedPost,
+    author: updatedPost.profiles
+      ? {
+          id: updatedPost.author_id,
+          username: updatedPost.profiles.username,
+          created_at: new Date().toISOString(),
+        }
+      : undefined,
+    likes_count: updatedPost.likes ? updatedPost.likes.length : 0,
+    is_liked: updatedPost.likes
+      ? updatedPost.likes.some(
+          (like: { user_id: string }) => like.user_id === user?.id
+        )
+      : false,
+    is_owner: user?.id === updatedPost.author_id,
+  };
+
+  console.log('✅ Successfully updated post');
+  return transformedPost;
+}

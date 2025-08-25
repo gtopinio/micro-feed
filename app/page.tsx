@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { Post } from '@/types/post';
 import { PostCard } from '@/components/post-card';
 import { AuthForm } from '@/components/auth-form';
 import { Composer } from '@/components/composer';
@@ -14,13 +15,21 @@ import { usePosts } from '@/hooks/use-posts';
 import { usePostsPaginated } from '@/hooks/use-posts-paginated';
 import { usePostCounts } from '@/hooks/use-post-counts';
 import { useAuth } from '@/hooks/use-auth';
-import { createPost, likePost, unlikePost } from '@/lib/db';
+import {
+  createPost,
+  likePost,
+  unlikePost,
+  deletePost,
+  updatePost,
+} from '@/lib/db';
+import { EditPostModal } from '@/components/edit-post-modal';
 
 export default function HomePage() {
   const [usePagination, setUsePagination] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   // State for optimistic updates
   const [optimisticUpdates, setOptimisticUpdates] = useState<
@@ -201,6 +210,57 @@ export default function HomePage() {
     }
   };
 
+  // Handle post editing
+  const handleEditPost = (postId: string) => {
+    const post = posts.find((p) => p.id === postId);
+    if (post) {
+      setEditingPost(post);
+    }
+  };
+
+  // Handle post deletion with confirmation
+  const handleDeletePost = async (postId: string) => {
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete this post?\n\n"${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}"\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      console.log('🔄 Deleting post:', postId);
+      await deletePost(postId);
+      console.log('✅ Post deleted successfully');
+
+      // Refresh posts and counts after deletion
+      await refetch();
+      await refetchCounts();
+    } catch (error) {
+      console.error('❌ handleDeletePost error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete post');
+    }
+  };
+
+  // Handle saving edited post
+  const handleSaveEditedPost = async (postId: string, content: string) => {
+    try {
+      console.log('🔄 Updating post:', postId);
+      await updatePost(postId, content);
+      console.log('✅ Post updated successfully');
+
+      // Close the edit modal
+      setEditingPost(null);
+
+      // Refresh posts to get the updated content
+      await refetch();
+    } catch (error) {
+      console.error('❌ handleSaveEditedPost error:', error);
+      throw error; // Re-throw so EditPostModal can handle the error state
+    }
+  };
+
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -365,8 +425,8 @@ export default function HomePage() {
                   key={post.id}
                   post={post}
                   onLike={handleLikePost}
-                  onEdit={(id) => console.log('Edit post:', id)}
-                  onDelete={(id) => console.log('Delete post:', id)}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
                 />
               ))}
             </>
@@ -396,6 +456,14 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {/* Edit Post Modal */}
+      <EditPostModal
+        post={editingPost}
+        isOpen={!!editingPost}
+        onClose={() => setEditingPost(null)}
+        onSave={handleSaveEditedPost}
+      />
     </div>
   );
 }
