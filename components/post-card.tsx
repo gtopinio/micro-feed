@@ -26,9 +26,6 @@ export function PostCard({ post, onLike, onEdit, onDelete }: PostCardProps) {
             <h3 className="font-semibold text-white">
               {post.author?.username || 'Unknown User'}
             </h3>
-            <span className="text-slate-400 text-sm">
-              @{post.author?.username?.toLowerCase() || 'unknown'}
-            </span>
             <span className="text-slate-500 text-sm">•</span>
             <span className="text-slate-400 text-sm">
               {new Date(post.created_at).toLocaleDateString('en-US', {

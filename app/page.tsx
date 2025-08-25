@@ -5,8 +5,10 @@
 
 import { PostCard } from '@/components/post-card';
 import { AuthForm } from '@/components/auth-form';
+import { Composer } from '@/components/composer';
 import { usePosts } from '@/hooks/use-posts';
 import { useAuthWithProfile } from '@/hooks/use-auth-with-profile';
+import { createPost } from '@/lib/db';
 
 export default function HomePage() {
   const { posts, loading, error, refetch } = usePosts();
@@ -15,6 +17,22 @@ export default function HomePage() {
     loading: authLoading,
     displayName,
   } = useAuthWithProfile();
+
+  // Handle post creation with optimistic updates
+  const handleCreatePost = async (content: string) => {
+    console.log('🔄 handleCreatePost called with:', content);
+    try {
+      console.log('🔄 Calling createPost...');
+      await createPost(content);
+      console.log('✅ createPost completed, calling refetch...');
+      // Refresh the posts after successful creation
+      await refetch();
+      console.log('✅ refetch completed');
+    } catch (error) {
+      console.error('❌ handleCreatePost error:', error);
+      throw error; // Re-throw so Composer can handle the error state
+    }
+  };
 
   // Show loading while checking auth
   if (authLoading) {
@@ -70,28 +88,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Post Composer - TODO: Add later */}
-        <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 p-6 mb-6">
-          <textarea
-            placeholder="What's on your mind? (280 characters max)"
-            className="w-full p-4 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
-            rows={3}
-            disabled
-          />
-          <div className="flex justify-between items-center mt-4">
-            <span className="text-sm text-slate-400">
-              <i className="fas fa-info-circle mr-1"></i>
-              0/280
-            </span>
-            <button
-              disabled
-              className="bg-slate-600 text-slate-400 px-6 py-2 rounded-lg font-medium cursor-not-allowed"
-            >
-              <i className="fas fa-paper-plane mr-2"></i>
-              Post
-            </button>
-          </div>
-        </div>
+        {/* Post Composer */}
+        <Composer onPost={handleCreatePost} isLoading={loading} />
 
         {/* Posts List */}
         <div className="space-y-4">

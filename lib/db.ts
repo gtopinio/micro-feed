@@ -54,14 +54,20 @@ export async function getPosts(): Promise<Post[]> {
 }
 
 export async function createPost(content: string): Promise<Post> {
+  console.log('🔄 Creating post with content:', content);
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  console.log('🔄 Current user:', user?.id);
+
   if (!user) {
+    console.error('❌ User not authenticated');
     throw new Error('User not authenticated');
   }
 
+  console.log('🔄 Inserting post into database...');
   const { data, error } = await supabase
     .from('posts')
     .insert([
@@ -73,17 +79,34 @@ export async function createPost(content: string): Promise<Post> {
     .select(
       `
       *,
-      author:profiles(username)
+      profiles!posts_author_id_fkey(username)
     `
     )
     .single();
 
   if (error) {
-    console.error('Error creating post:', error);
-    throw new Error('Failed to create post');
+    console.error('❌ Error creating post:', error);
+    throw new Error(`Failed to create post: ${error.message}`);
   }
 
-  return data;
+  console.log('✅ Post created successfully:', data);
+
+  // Transform the data to match our Post interface (same as getPosts)
+  const transformedPost = {
+    ...data,
+    author: data.profiles
+      ? {
+          id: data.author_id,
+          username: data.profiles.username,
+          created_at: new Date().toISOString(),
+        }
+      : undefined,
+    likes_count: 0,
+    is_liked: false,
+    is_owner: true, // User just created this post
+  };
+
+  return transformedPost;
 }
 
 export async function likePost(postId: string): Promise<void> {
