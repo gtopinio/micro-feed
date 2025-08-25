@@ -8,9 +8,16 @@ import { useState } from 'react';
 interface ComposerProps {
   onPost: (content: string) => Promise<void>;
   isLoading?: boolean;
+  onCancel?: () => void;
+  showCancelButton?: boolean;
 }
 
-export function Composer({ onPost, isLoading = false }: ComposerProps) {
+export function Composer({
+  onPost,
+  isLoading = false,
+  onCancel,
+  showCancelButton = false,
+}: ComposerProps) {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,20 +71,32 @@ export function Composer({ onPost, isLoading = false }: ComposerProps) {
           ></i>
           {characterCount}/{maxCharacters}
         </span>
-        <button
-          onClick={handleSubmit}
-          disabled={isEmpty || isOverLimit || isSubmitting || isLoading}
-          className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            isEmpty || isOverLimit || isSubmitting || isLoading
-              ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
-              : 'bg-cyan-500 hover:bg-cyan-600 text-white'
-          }`}
-        >
-          <i
-            className={`fas ${isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'} mr-2`}
-          ></i>
-          {isSubmitting ? 'Posting...' : 'Post'}
-        </button>
+        <div className="flex items-center space-x-3">
+          {showCancelButton && onCancel && (
+            <button
+              onClick={onCancel}
+              disabled={isSubmitting || isLoading}
+              className="px-4 py-2 rounded-lg font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-700"
+            >
+              <i className="fas fa-times mr-2"></i>
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={handleSubmit}
+            disabled={isEmpty || isOverLimit || isSubmitting || isLoading}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              isEmpty || isOverLimit || isSubmitting || isLoading
+                ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                : 'bg-cyan-500 hover:bg-cyan-600 text-white'
+            }`}
+          >
+            <i
+              className={`fas ${isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'} mr-2`}
+            ></i>
+            {isSubmitting ? 'Posting...' : 'Post'}
+          </button>
+        </div>
       </div>
 
       {/* Helpful hint */}

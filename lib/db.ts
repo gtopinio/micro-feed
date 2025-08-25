@@ -126,6 +126,122 @@ export async function getPostsPaginated(
   return createPaginationResult(transformedPosts, count || 0, pagination);
 }
 
+// 🔄 Paginated version with filtering support
+export async function getPostsPaginatedWithFilter(
+  pagination: PaginationParams,
+  filter: 'all' | 'my' = 'all',
+  searchQuery?: string
+): Promise<PaginationResult<Post>> {
+  // Get current user for ownership checks
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Build query with conditional filtering
+  let countQuery = supabase
+    .from('posts')
+    .select('*', { count: 'exact', head: true });
+  let dataQuery = supabase.from('posts').select(
+    `
+      *,
+      profiles!posts_author_id_fkey(username),
+      likes(user_id)
+    `
+  );
+
+  // Apply user filter if needed
+  if (filter === 'my' && user?.id) {
+    countQuery = countQuery.eq('author_id', user.id);
+    dataQuery = dataQuery.eq('author_id', user.id);
+  }
+
+  // Apply search filter if provided
+  if (searchQuery && searchQuery.trim()) {
+    const trimmedQuery = searchQuery.trim();
+    // Search in post content (case-insensitive)
+    countQuery = countQuery.ilike('content', `%${trimmedQuery}%`);
+    dataQuery = dataQuery.ilike('content', `%${trimmedQuery}%`);
+  }
+
+  // Get the filtered count
+  const { count, error: countError } = await countQuery;
+
+  if (countError) {
+    console.error('Error counting filtered posts:', countError);
+    throw new Error('Failed to count posts');
+  }
+
+  // Get the paginated posts with the same filter
+  const { data, error } = await dataQuery
+    .order('created_at', { ascending: false })
+    .range(pagination.offset, pagination.offset + pagination.limit - 1);
+
+  if (error) {
+    console.error('Error fetching filtered paginated posts:', error);
+    throw new Error('Failed to fetch posts');
+  }
+
+  // Transform the data to match our Post interface
+  const transformedPosts = (data || []).map((post) => ({
+    ...post,
+    author: post.profiles
+      ? {
+          id: post.author_id,
+          username: post.profiles.username,
+          created_at: new Date().toISOString(),
+        }
+      : undefined,
+    likes_count: post.likes ? post.likes.length : 0,
+    // Check if current user has liked this post
+    is_liked: post.likes
+      ? post.likes.some(
+          (like: { user_id: string }) => like.user_id === user?.id
+        )
+      : false,
+    // Check if current user owns this post
+    is_owner: user?.id === post.author_id,
+  }));
+
+  return createPaginationResult(transformedPosts, count || 0, pagination);
+}
+
+// Get total count of all posts
+export async function getPostsCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from('posts')
+    .select('*', { count: 'exact', head: true });
+
+  if (error) {
+    console.error('Error fetching posts count:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// Get count of posts by current user
+export async function getMyPostsCount(): Promise<number> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return 0;
+  }
+
+  const { count, error } = await supabase
+    .from('posts')
+    .select('*', { count: 'exact', head: true })
+    .eq('author_id', user.id);
+
+  if (error) {
+    console.error('Error fetching my posts count:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
 export async function createPost(content: string): Promise<Post> {
   const {
     data: { user },

@@ -5,9 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Post } from '@/types/post';
-import { getPostsPaginated } from '@/lib/db';
+import { getPostsPaginatedWithFilter } from '@/lib/db';
 import {
-  PaginationParams,
   PaginationResult,
   createPaginationParams,
   UsePaginationOptions,
@@ -39,7 +38,9 @@ interface UsePostsPaginatedReturn {
 }
 
 export function usePostsPaginated(
-  options: UsePaginationOptions = {}
+  options: UsePaginationOptions = {},
+  filter: 'all' | 'my' = 'all',
+  searchQuery?: string
 ): UsePostsPaginatedReturn {
   const { initialPage = 1, initialLimit = 10, onPageChange } = options;
 
@@ -56,25 +57,32 @@ export function usePostsPaginated(
   const [limit, setLimit] = useState(initialLimit);
 
   // Fetch posts function
-  const fetchPosts = useCallback(async (page: number, pageLimit: number) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchPosts = useCallback(
+    async (page: number, pageLimit: number) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const params = createPaginationParams(page, pageLimit);
-      const result = await getPostsPaginated(params);
+        const params = createPaginationParams(page, pageLimit);
+        const result = await getPostsPaginatedWithFilter(
+          params,
+          filter,
+          searchQuery
+        );
 
-      setPosts(result.data);
-      setPaginationInfo(result.pagination);
-    } catch (err) {
-      console.error('Error fetching paginated posts:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch posts');
-      setPosts([]);
-      setPaginationInfo(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        setPosts(result.data);
+        setPaginationInfo(result.pagination);
+      } catch (err) {
+        console.error('Error fetching paginated posts:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch posts');
+        setPosts([]);
+        setPaginationInfo(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filter, searchQuery]
+  );
 
   // Refetch current page
   const refetch = useCallback(() => {

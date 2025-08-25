@@ -3,27 +3,37 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PostCard } from '@/components/post-card';
 import { AuthForm } from '@/components/auth-form';
 import { Composer } from '@/components/composer';
+import { Toolbar } from '@/components/toolbar';
+import { FilterTabs, FilterType } from '@/components/filter-tabs';
 import { Pagination, PaginationInfo } from '@/components/pagination';
 import { usePosts } from '@/hooks/use-posts';
 import { usePostsPaginated } from '@/hooks/use-posts-paginated';
+import { usePostCounts } from '@/hooks/use-post-counts';
 import { useAuth } from '@/hooks/use-auth';
 import { createPost, likePost, unlikePost } from '@/lib/db';
 
 export default function HomePage() {
   const [usePagination, setUsePagination] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
 
   // Original posts hook (non-paginated)
   const originalPosts = usePosts();
 
   // Paginated posts hook
-  const paginatedPosts = usePostsPaginated({
-    initialLimit: 5, // Smaller limit for demo
-    onPageChange: (page) => console.log('Page changed to:', page),
-  });
+  const paginatedPosts = usePostsPaginated(
+    {
+      initialLimit: 5, // Smaller limit for demo
+      onPageChange: (page) => console.log('Page changed to:', page),
+    },
+    activeFilter === 'my-posts' ? 'my' : 'all',
+    searchQuery
+  );
 
   // Choose which data source to use
   const { posts, loading, error, refetch } = usePagination
@@ -31,18 +41,64 @@ export default function HomePage() {
     : originalPosts;
 
   const {
+    user,
     isAuthenticated,
     loading: authLoading,
     displayName,
     signOut,
   } = useAuth();
 
+  // Get accurate post counts
+  const {
+    allPostsCount,
+    myPostsCount,
+    refetch: refetchCounts,
+  } = usePostCounts();
+
+  // Filter and search posts
+  const filteredPosts = useMemo(() => {
+    let filtered = posts;
+
+    // In paginated mode, filtering and search is handled at the database level
+    if (usePagination) {
+      return posts; // No client-side filtering needed
+    }
+
+    // For non-paginated mode, apply client-side filtering
+    // Apply filter (All Posts vs My Posts)
+    if (activeFilter === 'my-posts' && user) {
+      filtered = posts.filter((post) => post.author_id === user.id);
+    }
+
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (post) =>
+          post.content.toLowerCase().includes(query) ||
+          post.author?.username?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [posts, activeFilter, searchQuery, user, usePagination]);
+
+  // Reset to first page when search query changes in paginated mode
+  useEffect(() => {
+    if (usePagination && paginatedPosts.setPage) {
+      paginatedPosts.setPage(1);
+    }
+  }, [searchQuery, usePagination, paginatedPosts]);
+
   // Handle post creation with optimistic updates
   const handleCreatePost = async (content: string) => {
     try {
       await createPost(content);
-      // Refresh the posts after successful creation
+      // Refresh both posts and counts after successful creation
       await refetch();
+      await refetchCounts();
+      // Close the composer after successful post creation
+      setIsComposerOpen(false);
     } catch (error) {
       console.error('❌ handleCreatePost error:', error);
       throw error; // Re-throw so Composer can handle the error state
@@ -120,51 +176,56 @@ export default function HomePage() {
     );
   }
 
-  // Main feed view with loading state
+  // Main feed view with new layout
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Top Navigation Toolbar */}
+      <Toolbar
+        displayName={displayName}
+        onSignOut={signOut}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onComposeToggle={() => setIsComposerOpen(!isComposerOpen)}
+        isComposerOpen={isComposerOpen}
+      />
+
+      {/* Filter Tabs */}
+      <FilterTabs
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        myPostsCount={myPostsCount}
+        allPostsCount={allPostsCount}
+      />
+
+      {/* Main Content Area */}
       <div className="max-w-2xl mx-auto py-8 px-4">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">
-            <i className="fas fa-rss mr-3 text-cyan-500"></i>
-            Micro Feed
-          </h1>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-slate-400 flex items-center">
-              <i className="fas fa-user-circle mr-2"></i>
-              Welcome, {displayName}
-            </div>
+        {/* Post Composer - Conditionally rendered */}
+        {isComposerOpen && (
+          <Composer
+            onPost={handleCreatePost}
+            isLoading={loading}
+            onCancel={() => setIsComposerOpen(false)}
+            showCancelButton={true}
+          />
+        )}
 
-            {/* Pagination Toggle */}
-            <button
-              onClick={() => setUsePagination(!usePagination)}
-              className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center ${
-                usePagination
-                  ? 'bg-cyan-500 hover:bg-cyan-600 text-white'
-                  : 'bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white'
-              }`}
-              title={usePagination ? 'Disable pagination' : 'Enable pagination'}
-            >
-              <i
-                className={`fas ${usePagination ? 'fa-list' : 'fa-stream'} mr-1`}
-              ></i>
-              {usePagination ? 'Paginated' : 'All Posts'}
-            </button>
-
-            <button
-              onClick={signOut}
-              className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-1 rounded-lg transition-colors flex items-center"
-              title="Sign out"
-            >
-              <i className="fas fa-sign-out-alt mr-1"></i>
-              Sign Out
-            </button>
-          </div>
+        {/* Pagination Toggle (Developer Tool) */}
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={() => setUsePagination(!usePagination)}
+            className={`text-xs px-3 py-1 rounded-lg transition-colors flex items-center ${
+              usePagination
+                ? 'bg-cyan-500 hover:bg-cyan-600 text-white'
+                : 'bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white'
+            }`}
+            title={usePagination ? 'Disable pagination' : 'Enable pagination'}
+          >
+            <i
+              className={`fas ${usePagination ? 'fa-list' : 'fa-stream'} mr-1`}
+            ></i>
+            {usePagination ? 'Paginated' : 'All Posts'}
+          </button>
         </div>
-
-        {/* Post Composer */}
-        <Composer onPost={handleCreatePost} isLoading={loading} />
 
         {/* Posts List */}
         <div className="space-y-4">
@@ -175,23 +236,77 @@ export default function HomePage() {
                 <div className="h-4 bg-slate-700 rounded w-1/2 mx-auto"></div>
               </div>
             </div>
-          ) : posts.length === 0 ? (
+          ) : filteredPosts.length === 0 ? (
             <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 p-8 text-center">
-              <i className="fas fa-comments text-slate-600 text-4xl mb-4"></i>
-              <p className="text-slate-400 text-lg">
-                No posts yet. Be the first to post!
-              </p>
+              <i className="fas fa-search text-slate-600 text-4xl mb-4"></i>
+              {searchQuery ? (
+                <div>
+                  <p className="text-slate-400 text-lg mb-2">
+                    No posts found for &quot;{searchQuery}&quot;
+                  </p>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : activeFilter === 'my-posts' ? (
+                <p className="text-slate-400 text-lg">
+                  You haven&apos;t posted anything yet. Create your first post!
+                </p>
+              ) : (
+                <p className="text-slate-400 text-lg">
+                  No posts yet. Be the first to post!
+                </p>
+              )}
             </div>
           ) : (
-            posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                onLike={handleLikePost}
-                onEdit={(id) => console.log('Edit post:', id)}
-                onDelete={(id) => console.log('Delete post:', id)}
-              />
-            ))
+            <>
+              {/* Search/Filter Results Info */}
+              {(searchQuery || activeFilter === 'my-posts') && (
+                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                  <div className="flex items-center justify-between text-sm text-slate-400">
+                    <div>
+                      {searchQuery && (
+                        <span>
+                          <i className="fas fa-search mr-1"></i>
+                          Found {filteredPosts.length} result
+                          {filteredPosts.length !== 1 ? 's' : ''} for &quot;
+                          {searchQuery}&quot;
+                        </span>
+                      )}
+                      {activeFilter === 'my-posts' && !searchQuery && (
+                        <span>
+                          <i className="fas fa-user mr-1"></i>
+                          Showing your {filteredPosts.length} post
+                          {filteredPosts.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                      >
+                        Clear search
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Posts */}
+              {filteredPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onLike={handleLikePost}
+                  onEdit={(id) => console.log('Edit post:', id)}
+                  onDelete={(id) => console.log('Delete post:', id)}
+                />
+              ))}
+            </>
           )}
         </div>
 
