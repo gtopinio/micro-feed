@@ -1,6 +1,3 @@
-// 🔄 Post Composer Component
-// Following Sina's recommended modular structure
-
 'use client';
 
 import { useState } from 'react';

@@ -1,6 +1,3 @@
-// 🔄 Supabase client setup
-// This replaces Angular's HTTP services with direct database operations
-
 import { createClient } from '@supabase/supabase-js';
 import { Post } from '@/types/post';
 import {
@@ -13,10 +10,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
-
-// 🔄 Database functions (like Angular services but simpler)
-// Instead of Angular's: this.postService.getPosts()
-// We have: await getPosts()
 
 export async function getPosts(): Promise<Post[]> {
   // Get current user for ownership checks

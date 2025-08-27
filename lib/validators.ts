@@ -1,6 +1,3 @@
-// 🔄 Zod validation schemas
-// Similar to Angular's form validators, but more powerful
-
 import { z } from 'zod';
 
 // Post creation validation
@@ -41,7 +38,6 @@ export const profileSchema = z.object({
     .trim(),
 });
 
-// Types derived from schemas (like Angular interfaces)
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 export type SearchInput = z.infer<typeof searchSchema>;

@@ -1,6 +1,3 @@
-// 🔄 Pagination utilities for micro feed
-// Following Sina's recommended structure
-
 export interface PaginationParams {
   page: number;
   limit: number;

@@ -1,6 +1,3 @@
-// 🔄 Pagination Component
-// Following Sina's recommended modular structure
-
 'use client';
 
 import { getPaginationRange } from '@/lib/pagination';

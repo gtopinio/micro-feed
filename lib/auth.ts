@@ -1,10 +1,6 @@
-// 🔄 Authentication utilities
-// Similar to Angular's AuthService but using Supabase
-
 import { supabase } from './db';
 import type { User } from '@supabase/supabase-js';
 
-// Get current user (like Angular's getCurrentUser())
 export async function getCurrentUser() {
   try {
     const {
@@ -101,7 +97,6 @@ export async function signOut() {
   }
 }
 
-// Listen to auth state changes (like Angular's auth guard)
 export function onAuthStateChange(callback: (user: User | null) => void) {
   return supabase.auth.onAuthStateChange((event, session) => {
     callback(session?.user ?? null);

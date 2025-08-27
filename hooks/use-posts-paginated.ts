@@ -1,6 +1,3 @@
-// 🔄 Paginated Posts Hook
-// Following Sina's recommended structure for pagination
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';

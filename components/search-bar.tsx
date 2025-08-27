@@ -1,6 +1,3 @@
-// 🔄 Search Bar Component
-// Following Sina's recommended modular structure
-
 'use client';
 
 interface SearchBarProps {

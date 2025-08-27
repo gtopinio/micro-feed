@@ -119,11 +119,13 @@ export default function HomePage() {
   ]);
 
   // Reset to first page when search query changes in paginated mode
+  // Only reset to first page when searchQuery changes in paginated mode
   useEffect(() => {
     if (usePagination && paginatedPosts.setPage) {
       paginatedPosts.setPage(1);
     }
-  }, [searchQuery, usePagination, paginatedPosts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   // Handle post creation with optimistic updates
   const handleCreatePost = async (content: string) => {

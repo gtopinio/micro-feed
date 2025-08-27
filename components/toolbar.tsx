@@ -1,6 +1,3 @@
-// 🔄 Main Navigation Toolbar
-// Following Sina's recommended structure and mockup design
-
 'use client';
 
 interface ToolbarProps {

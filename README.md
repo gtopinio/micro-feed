@@ -33,7 +33,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 1. Create a new Supabase project
 2. Go to the SQL Editor in your Supabase dashboard
-3. Run the following schema (also available in `/docs/schema.sql`):
+3. Run the following schema to create necessary tables and RLS policies:
 
 ```sql
 -- Create tables
@@ -94,60 +94,25 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 
 ### 5. Optional: Seed Data
 
-After creating an account, you can create some test posts to explore the features.
+After creating a user account, you can add sample posts via the SQL editor:
+
+```sql
+-- Replace 'your-user-id' with your actual user ID from auth.users table
+INSERT INTO posts (content, author_id) VALUES
+('Just built my first micro feed! 🚀 #coding #nextjs', 'your-user-id'),
+('TypeScript + Supabase = ❤️ Perfect combo for rapid development', 'your-user-id'),
+('Working on pagination features. The user experience is so smooth! ✨', 'your-user-id');
+```
 
 ## 🏗 Architecture & Design Decisions
 
-### **Routing Choice: Direct Database Calls vs Server Actions**
+I chose to use direct database calls via the Supabase client rather than server actions or API routes. Supabase’s Row Level Security enforces all permissions at the database level, so adding another server layer would introduce complexity and latency without meaningful benefits for this project. This pattern also keeps the app real-time ready, reduces round trips, and keeps type safety end-to-end.
 
-**Decision**: I chose **direct database calls** from client components using Supabase's client-side SDK instead of server actions or API routes.
+For correctness and security, validation is done with Zod on the client, while RLS policies and database constraints act as the server-side guardrails. Error handling is centralized in hooks with friendly UI feedback, and optimistic UI ensures fast interactions: posts and likes update immediately with rollback on failure. In short, the design favors simplicity, responsiveness, and RLS-first security over unnecessary backend layers.
 
-**Reasoning**:
+### **Tradeoffs & Timeboxing**
 
-- **Supabase-First Architecture**: Supabase's Row Level Security (RLS) handles all authorization at the database level, making server-side auth middleware redundant
-- **Performance**: Eliminates unnecessary server round-trips - client talks directly to database
-- **Real-time Ready**: Direct client connection enables easy future addition of real-time subscriptions
-- **Type Safety**: End-to-end TypeScript from database to UI without serialization boundaries
-- **Simplicity**: Fewer moving parts means less complexity and fewer potential failure points
-
-**Why Not Server Actions?**
-
-- Server Actions excel when you need server-side processing, complex business logic, or want to hide database structure
-- For this project, RLS provides security, and CRUD operations are straightforward
-- Adding a server layer would increase latency and complexity without meaningful benefits
-
-**Industry Context**: This direct-client pattern is recommended by Supabase and widely used in production apps like Linear, Notion (for some operations), and many Y Combinator startups.
-
-### **Error Handling Strategy**
-
-- **Client-side**: React hooks manage error states with user-friendly messages
-- **Optimistic Updates**: UI updates immediately with rollback on failures
-- **Database Level**: RLS policies provide security guardrails
-- **Validation**: Zod schemas validate data on both client and server
-
-### **Optimistic UI Strategy**
-
-- **Post Creation**: Immediately shows in feed, removes on error
-- **Like/Unlike**: Instant count update with server sync
-- **State Management**: Map-based optimistic updates with automatic cleanup
-
-### **RLS Security Assumptions**
-
-- Users can only modify their own posts and profiles
-- All posts and profiles are publicly readable
-- Like/unlike operations are restricted to authenticated users
-- Database-level constraints prevent unauthorized access
-
-## ⚡ Development Features
-
-- **Git Hooks**: Pre-commit type checking, linting, and formatting
-- **Code Quality**: ESLint, Prettier, and Commitlint configuration
-- **TypeScript**: Strict type checking throughout the application
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-
-## 🎯 Tradeoffs & Timeboxing
-
-### **What's Included**
+#### What's Included
 
 - Full CRUD operations for posts
 - Beautiful, responsive UI with dark theme
@@ -156,14 +121,15 @@ After creating an account, you can create some test posts to explore the feature
 - Comprehensive TypeScript types
 - Professional development tooling
 
-### **What Was Prioritized**
+#### What Was Prioritized
 
 - **User Experience**: Smooth interactions with optimistic updates over complex animations
 - **Code Quality**: Proper separation of concerns and type safety over advanced features
 - **Security**: RLS-first approach over custom authorization middleware
 - **Performance**: Client-side filtering for non-paginated mode over full server-side search
+- **Routing Choice**: Direct client calls were prioritized over server actions/API routes to reduce complexity and leverage Supabase RLS for security. Server actions could be added later if server-side logic or hidden business rules become necessary.
 
-### **Future Enhancements** (out of scope)
+#### Future Enhancements (out of scope)
 
 - Real-time feed updates with Supabase subscriptions
 - Image uploads for posts

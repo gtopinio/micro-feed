@@ -1,6 +1,3 @@
-// 🔄 This will be our main Post type
-// Similar to Angular: export interface Post { ... }
-
 export interface Post {
   id: string;
   author_id: string;

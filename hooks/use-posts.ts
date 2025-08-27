@@ -1,6 +1,3 @@
-// 🔄 This replaces Angular services with React hooks
-// Instead of injecting PostService, you'll use: const { posts, loading } = usePosts()
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,5 +45,3 @@ export function usePosts() {
     refetch: loadPosts,
   };
 }
-
-// 🔄 Similar to Angular's OnInit, but as a reusable hook
